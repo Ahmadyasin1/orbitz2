@@ -21,7 +21,9 @@ import {
   Tag,
   Clock,
   Download,
-  ExternalLink
+  ExternalLink,
+  DollarSign,
+  BarChart3
 } from 'lucide-react'
 
 // All Supabase mutations are now done via server API routes to avoid client-side service keys
@@ -61,39 +63,6 @@ interface CaseStudy {
   views: number
 }
 
-interface Whitepaper {
-  id: string
-  title: string
-  slug: string
-  excerpt: string
-  content: string
-  featured_image_url: string
-  file_url: string
-  author_name: string
-  published_at: string
-  status: string
-  downloads: number
-  tags: string[]
-}
-
-interface Webinar {
-  id: string
-  title: string
-  slug: string
-  excerpt: string
-  content: string
-  featured_image_url: string
-  webinar_url: string
-  duration: string
-  scheduled_at: string
-  presenter_name: string
-  presenter_title: string
-  published_at: string
-  status: string
-  registrations: number
-  tags: string[]
-}
-
 export default function AdminPage() {
   // Admin login state
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -113,11 +82,19 @@ export default function AdminPage() {
       setLoginError("Invalid email or password.")
     }
   }
+
+  const handleLogout = () => {
+    setIsLoggedIn(false)
+    setLoginEmail("")
+    setLoginPassword("")
+    setLoginError("")
+    setEditing(null)
+    setFormData({})
+  }
+
   const [activeTab, setActiveTab] = useState('blogs')
   const [blogs, setBlogs] = useState<Blog[]>([])
   const [caseStudies, setCaseStudies] = useState<CaseStudy[]>([])
-  const [whitepapers, setWhitepapers] = useState<Whitepaper[]>([])
-  const [webinars, setWebinars] = useState<Webinar[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<string | null>(null)
   const [formData, setFormData] = useState<any>({})
@@ -129,7 +106,8 @@ export default function AdminPage() {
     const res = await fetch(input, { ...init })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }))
-      throw new Error(err.error || 'Request failed')
+      console.error('API Error:', { status: res.status, statusText: res.statusText, error: err })
+      throw new Error(err.error || `HTTP ${res.status}: ${res.statusText}`)
     }
     return res.json()
   }
@@ -142,17 +120,13 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [blogsRes, caseStudiesRes, whitepapersRes, webinarsRes] = await Promise.all([
+      const [blogsRes, caseStudiesRes] = await Promise.all([
         apiFetch('/api/content?type=blogs'),
-        apiFetch('/api/content?type=case_studies'),
-        apiFetch('/api/content?type=whitepapers'),
-        apiFetch('/api/content?type=webinars')
+        apiFetch('/api/content?type=case_studies')
       ])
 
       if (blogsRes.data) setBlogs(blogsRes.data)
       if (caseStudiesRes.data) setCaseStudies(caseStudiesRes.data)
-      if (whitepapersRes.data) setWhitepapers(whitepapersRes.data)
-      if (webinarsRes.data) setWebinars(webinarsRes.data)
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
@@ -167,24 +141,83 @@ export default function AdminPage() {
 
   const handleSave = async (type: string) => {
     try {
+      // Validate required fields
+      if (!formData.title?.trim()) {
+        alert('Title is required')
+        return
+      }
+      if (!formData.content?.trim()) {
+        alert('Content is required')
+        return
+      }
+
+      // Prepare the record with required fields
+      const now = new Date().toISOString()
+      let record = { ...formData }
+
+      // For new records, ensure required fields are set
+      if (editing === 'new') {
+        record = {
+          ...record,
+          created_at: now,
+          updated_at: now,
+          published_at: record.published_at || now,
+          status: record.status || 'published',
+          slug: record.slug || generateSlug(record.title)
+        }
+
+        // Ensure required fields for blogs
+        if (type === 'blogs') {
+          record = {
+            ...record,
+            author_name: record.author_name || 'Orbitz Technology',
+            tags: record.tags || [],
+            read_time: record.read_time || 5,
+            views: record.views || 0,
+            likes: record.likes || 0
+          }
+        }
+
+        // Ensure required fields for case studies
+        if (type === 'case_studies') {
+          record = {
+            ...record,
+            technologies: record.technologies || [],
+            results: record.results || '',
+            views: record.views || 0
+          }
+        }
+      } else {
+        // For updates, just set updated_at
+        record.updated_at = now
+      }
+
+      console.log('Saving record:', { type, record, editing })
+
       if (editing && editing !== 'new') {
-        await apiFetch('/api/content', {
+        const response = await apiFetch('/api/content', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type, id: editing, record: formData })
+          body: JSON.stringify({ type, id: editing, record })
         })
+        console.log('Update response:', response)
       } else {
-        await apiFetch('/api/content', {
+        const response = await apiFetch('/api/content', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type, record: formData })
+          body: JSON.stringify({ type, record })
         })
+        console.log('Create response:', response)
       }
+      
       setEditing(null)
       setFormData({})
-      loadData()
+      await loadData()
+      alert('Content saved successfully!')
     } catch (error) {
       console.error('Error saving:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Error saving content: ${errorMessage}`)
     }
   }
 
@@ -239,89 +272,181 @@ export default function AdminPage() {
       </div>
       
       {editing === 'new' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Create New Blog Post</CardTitle>
+        <Card className="border-2 border-purple-200 shadow-xl bg-gradient-to-br from-white to-purple-50">
+          <CardHeader className="bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-lg">
+            <CardTitle className="text-xl flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <Plus className="w-5 h-5" />
+              </div>
+              Create New Blog Post
+            </CardTitle>
+            <p className="text-purple-100 text-sm">Share your insights and expertise with our audience</p>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={formData.title || ''}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value, slug: generateSlug(e.target.value) })}
-                />
+          <CardContent className="p-8 space-y-6">
+            {/* Basic Information Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600 text-sm font-bold">1</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Basic Information</h3>
               </div>
-              <div>
-                <Label htmlFor="slug">Slug</Label>
-                <Input
-                  id="slug"
-                  value={formData.slug || ''}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="excerpt">Excerpt</Label>
-              <Textarea
-                id="excerpt"
-                value={formData.excerpt || ''}
-                onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
-                rows={3}
-              />
-            </div>
-            <div>
-              <Label htmlFor="content">Content</Label>
-              <Textarea
-                id="content"
-                value={formData.content || ''}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                rows={10}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="featured_image_url">Featured Image</Label>
-                <Input
-                  id="featured_image_url"
-                  placeholder="Paste URL or upload a file"
-                  value={formData.featured_image_url || ''}
-                  onChange={(e) => setFormData({ ...formData, featured_image_url: e.target.value })}
-                />
-                <div className="flex items-center gap-2 mt-2">
-                  <Input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!selectedFile || uploading}
-                    onClick={async () => {
-                      if (!selectedFile) return
-                      const url = await handleUpload(selectedFile, 'blogs')
-                      setFormData((prev: any) => ({ ...prev, featured_image_url: url }))
-                      setSelectedFile(null)
-                    }}
-                  >
-                    <Upload className="w-4 h-4 mr-2" /> {uploading ? 'Uploading...' : 'Upload'}
-                  </Button>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="title" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Edit className="w-4 h-4 text-purple-500" />
+                    Blog Title *
+                  </Label>
+                  <Input
+                    id="title"
+                    placeholder="Enter an engaging title for your blog post..."
+                    value={formData.title || ''}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value, slug: generateSlug(e.target.value) })}
+                    className="border-2 border-gray-200 focus:border-purple-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">This will be the main headline readers see</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="slug" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4 text-purple-500" />
+                    URL Slug
+                  </Label>
+                  <Input
+                    id="slug"
+                    placeholder="auto-generated-from-title"
+                    value={formData.slug || ''}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    className="border-2 border-gray-200 focus:border-purple-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">This creates the web address for your post</p>
                 </div>
               </div>
-              <div>
-                <Label htmlFor="author_name">Author Name</Label>
-                <Input
-                  id="author_name"
-                  value={formData.author_name || ''}
-                  onChange={(e) => setFormData({ ...formData, author_name: e.target.value })}
+              
+              <div className="space-y-2">
+                <Label htmlFor="excerpt" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-purple-500" />
+                  Short Description *
+                </Label>
+                <Textarea
+                  id="excerpt"
+                  placeholder="Write a compelling summary that will appear in search results and social media..."
+                  value={formData.excerpt || ''}
+                  onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                  rows={3}
+                  className="border-2 border-gray-200 focus:border-purple-500 rounded-lg p-3 transition-all duration-200"
                 />
+                <p className="text-xs text-gray-500">Keep it under 160 characters for best SEO results</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={() => handleSave('blogs')}>
-                <Save className="w-4 h-4 mr-2" />
-                Save
+
+            {/* Content Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-green-600 text-sm font-bold">2</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Content</h3>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="content" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Edit className="w-4 h-4 text-purple-500" />
+                  Blog Content *
+                </Label>
+                <Textarea
+                  id="content"
+                  placeholder="Write your blog content here. You can use HTML tags for formatting..."
+                  value={formData.content || ''}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  rows={12}
+                  className="border-2 border-gray-200 focus:border-purple-500 rounded-lg p-3 transition-all duration-200"
+                />
+                <p className="text-xs text-gray-500">Use HTML tags like &lt;h2&gt;, &lt;p&gt;, &lt;strong&gt; for formatting</p>
+              </div>
+            </div>
+
+            {/* Media & Author Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-orange-600 text-sm font-bold">3</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Media & Author</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Upload className="w-4 h-4 text-purple-500" />
+                    Featured Image
+                  </Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
+                    <Input
+                      placeholder="Paste image URL here..."
+                      value={formData.featured_image_url || ''}
+                      onChange={(e) => setFormData({ ...formData, featured_image_url: e.target.value })}
+                      className="mb-3 border-gray-200 focus:border-purple-500"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!selectedFile || uploading}
+                        onClick={async () => {
+                          if (!selectedFile) return
+                          const url = await handleUpload(selectedFile, 'blogs')
+                          setFormData((prev: any) => ({ ...prev, featured_image_url: url }))
+                          setSelectedFile(null)
+                        }}
+                        className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+                      >
+                        <Upload className="w-4 h-4 mr-2" /> 
+                        {uploading ? 'Uploading...' : 'Upload'}
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500">Recommended size: 1200x630px for best social sharing</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="author_name" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <User className="w-4 h-4 text-purple-500" />
+                    Author Name
+                  </Label>
+                  <Input
+                    id="author_name"
+                    placeholder="Your name or Orbitz Technology"
+                    value={formData.author_name || 'Orbitz Technology'}
+                    onChange={(e) => setFormData({ ...formData, author_name: e.target.value })}
+                    className="border-2 border-gray-200 focus:border-purple-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">This will appear as the blog author</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 pt-6 border-t border-gray-200">
+              <Button 
+                onClick={() => handleSave('blogs')}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Save className="w-5 h-5 mr-2" />
+                Publish Blog Post
               </Button>
-              <Button variant="outline" onClick={handleCancel}>
-                <X className="w-4 h-4 mr-2" />
+              <Button 
+                variant="outline" 
+                onClick={handleCancel}
+                className="px-8 py-3 border-2 border-gray-300 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-lg font-semibold transition-all duration-300"
+              >
+                <X className="w-5 h-5 mr-2" />
                 Cancel
               </Button>
             </div>
@@ -478,6 +603,293 @@ export default function AdminPage() {
         </Button>
       </div>
       
+      {editing === 'new' && (
+        <Card className="border-2 border-blue-200 shadow-xl bg-gradient-to-br from-white to-blue-50">
+          <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-t-lg">
+            <CardTitle className="text-xl flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                <Plus className="w-5 h-5" />
+              </div>
+              Create New Case Study
+            </CardTitle>
+            <p className="text-blue-100 text-sm">Showcase your successful client projects and achievements</p>
+          </CardHeader>
+          <CardContent className="p-8 space-y-6">
+            {/* Project Overview Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600 text-sm font-bold">1</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Project Overview</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="cs-title" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Edit className="w-4 h-4 text-blue-500" />
+                    Case Study Title *
+                  </Label>
+                  <Input
+                    id="cs-title"
+                    placeholder="e.g., Digital Transformation for Healthcare Provider"
+                    value={formData.title || ''}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value, slug: generateSlug(e.target.value) })}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">Describe the project in a compelling way</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cs-slug" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4 text-blue-500" />
+                    URL Slug
+                  </Label>
+                  <Input
+                    id="cs-slug"
+                    placeholder="auto-generated-from-title"
+                    value={formData.slug || ''}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">Web address for this case study</p>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="cs-excerpt" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-blue-500" />
+                  Project Summary *
+                </Label>
+                <Textarea
+                  id="cs-excerpt"
+                  placeholder="Write a brief summary of the project, challenge solved, and key outcomes..."
+                  value={formData.excerpt || ''}
+                  onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                  rows={3}
+                  className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                />
+                <p className="text-xs text-gray-500">This appears in previews and search results</p>
+              </div>
+            </div>
+
+            {/* Client Information Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-green-600 text-sm font-bold">2</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Client Information</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="cs-client" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-500" />
+                    Client Name *
+                  </Label>
+                  <Input
+                    id="cs-client"
+                    placeholder="e.g., Regional Medical Center or Fortune 500 Company"
+                    value={formData.client_name || ''}
+                    onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">You can use a generic name if confidential</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cs-industry" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-blue-500" />
+                    Industry *
+                  </Label>
+                  <Input
+                    id="cs-industry"
+                    placeholder="e.g., Healthcare, Financial, Manufacturing"
+                    value={formData.industry || ''}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">This helps categorize your case study</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="cs-duration" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-500" />
+                    Project Duration
+                  </Label>
+                  <Input
+                    id="cs-duration"
+                    placeholder="e.g., 6 months, 1 year, 3-6 months"
+                    value={formData.project_duration || ''}
+                    onChange={(e) => setFormData({ ...formData, project_duration: e.target.value })}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">How long did the project take?</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cs-budget" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-blue-500" />
+                    Investment Range
+                  </Label>
+                  <Input
+                    id="cs-budget"
+                    placeholder="e.g., $50K - $100K, Contact for Quote"
+                    value={formData.project_budget || ''}
+                    onChange={(e) => setFormData({ ...formData, project_budget: e.target.value })}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">Budget range or "Contact for Quote"</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Technical Details Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                  <span className="text-purple-600 text-sm font-bold">3</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Technical Details</h3>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cs-technologies" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-blue-500" />
+                    Technologies Used
+                  </Label>
+                  <Input
+                    id="cs-technologies"
+                    placeholder="e.g., React, Node.js, PostgreSQL, AWS, AI/ML"
+                    value={Array.isArray(formData.technologies) ? formData.technologies.join(', ') : formData.technologies || ''}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      technologies: e.target.value.split(',').map(t => t.trim()).filter(t => t.length > 0)
+                    })}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">Separate multiple technologies with commas</p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="cs-results" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-blue-500" />
+                    Key Results & Metrics
+                  </Label>
+                  <Textarea
+                    id="cs-results"
+                    placeholder="• Improved efficiency by 40%
+• Cost savings of $25,000 annually
+• Increased user satisfaction to 95%
+• Reduced processing time by 50%"
+                    value={formData.results || ''}
+                    onChange={(e) => setFormData({ ...formData, results: e.target.value })}
+                    rows={4}
+                    className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                  />
+                  <p className="text-xs text-gray-500">List your key achievements and measurable outcomes (one per line)</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                  <span className="text-orange-600 text-sm font-bold">4</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Detailed Content</h3>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="cs-content" className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Edit className="w-4 h-4 text-blue-500" />
+                  Full Case Study Content *
+                </Label>
+                <Textarea
+                  id="cs-content"
+                  placeholder="Write the detailed story: the challenge, solution approach, implementation process, and outcomes. Use HTML tags for formatting..."
+                  value={formData.content || ''}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                  rows={12}
+                  className="border-2 border-gray-200 focus:border-blue-500 rounded-lg p-3 transition-all duration-200"
+                />
+                <p className="text-xs text-gray-500">Include challenge, solution, implementation steps, and results</p>
+              </div>
+            </div>
+
+            {/* Media Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center">
+                  <span className="text-pink-600 text-sm font-bold">5</span>
+                </div>
+                <h3 className="text-lg font-semibold text-gray-800">Featured Image</h3>
+              </div>
+              
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <Upload className="w-4 h-4 text-blue-500" />
+                  Project Image
+                </Label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-gray-50">
+                  <Input
+                    placeholder="Paste image URL here..."
+                    value={formData.featured_image_url || ''}
+                    onChange={(e) => setFormData({ ...formData, featured_image_url: e.target.value })}
+                    className="mb-3 border-gray-200 focus:border-blue-500"
+                  />
+                  <div className="flex items-center gap-3">
+                    <Input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!selectedFile || uploading}
+                      onClick={async () => {
+                        if (!selectedFile) return
+                        const url = await handleUpload(selectedFile, 'case_studies')
+                        setFormData((prev: any) => ({ ...prev, featured_image_url: url }))
+                        setSelectedFile(null)
+                      }}
+                      className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                    >
+                      <Upload className="w-4 h-4 mr-2" /> 
+                      {uploading ? 'Uploading...' : 'Upload'}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">Use a professional image that represents the project or industry</p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-4 pt-6 border-t border-gray-200">
+              <Button 
+                onClick={() => handleSave('case_studies')}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                <Save className="w-5 h-5 mr-2" />
+                Publish Case Study
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleCancel}
+                className="px-8 py-3 border-2 border-gray-300 hover:border-red-300 hover:bg-red-50 hover:text-red-600 rounded-lg font-semibold transition-all duration-300"
+              >
+                <X className="w-5 h-5 mr-2" />
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4">
         {caseStudies.map((study) => (
           <Card key={study.id}>
@@ -497,6 +909,20 @@ export default function AdminPage() {
                     <span>Duration: {study.project_duration}</span>
                     <span>Budget: {study.project_budget}</span>
                   </div>
+                  {study.technologies && study.technologies.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {study.technologies.slice(0, 3).map((tech, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {tech}
+                        </Badge>
+                      ))}
+                      {study.technologies.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{study.technologies.length - 3} more
+                        </Badge>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 ml-4">
                   <Button size="sm" variant="outline" onClick={() => handleEdit(study, 'case_studies')}>
@@ -507,185 +933,128 @@ export default function AdminPage() {
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  )
 
-  const renderWhitepapers = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Whitepapers</h2>
-        <Button onClick={() => setEditing('new')} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          New Whitepaper
-        </Button>
-      </div>
-      
-      <div className="grid gap-4">
-        {whitepapers.map((paper) => (
-          <Card key={paper.id}>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold">{paper.title}</h3>
-                    <Badge variant={paper.status === 'published' ? 'default' : 'secondary'}>
-                      {paper.status}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-2">{paper.excerpt}</p>
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Download className="w-3 h-3" />
-                      {paper.downloads} downloads
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(paper.published_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2 ml-4">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(paper, 'whitepapers')}>
-                    <Edit className="w-3 h-3" />
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDelete(paper.id, 'whitepapers')}>
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-              {editing === paper.id && (
+              {editing === study.id && (
                 <div className="mt-4 border-t pt-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>Featured Image</Label>
+                      <Label htmlFor={`cs-title-${study.id}`}>Title</Label>
                       <Input
-                        placeholder="Paste URL or upload a file"
-                        value={formData.featured_image_url || ''}
-                        onChange={(e) => setFormData({ ...formData, featured_image_url: e.target.value })}
+                        id={`cs-title-${study.id}`}
+                        value={formData.title || ''}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       />
-                      <div className="flex items-center gap-2 mt-2">
-                        <Input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={!selectedFile || uploading}
-                          onClick={async () => {
-                            if (!selectedFile) return
-                            const url = await handleUpload(selectedFile, 'insight')
-                            setFormData((prev: any) => ({ ...prev, featured_image_url: url }))
-                            setSelectedFile(null)
-                          }}
-                        >
-                          <Upload className="w-4 h-4 mr-2" /> {uploading ? 'Uploading...' : 'Upload'}
-                        </Button>
-                      </div>
                     </div>
                     <div>
-                      <Label>File URL (PDF)</Label>
+                      <Label htmlFor={`cs-slug-${study.id}`}>Slug</Label>
                       <Input
-                        placeholder="Paste URL for downloadable file"
-                        value={formData.file_url || ''}
-                        onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
+                        id={`cs-slug-${study.id}`}
+                        value={formData.slug || ''}
+                        onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                       />
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button onClick={() => handleSave('whitepapers')}>
-                      <Save className="w-4 h-4 mr-2" /> Save
-                    </Button>
-                    <Button variant="outline" onClick={handleCancel}>
-                      <X className="w-4 h-4 mr-2" /> Cancel
-                    </Button>
+                  <div>
+                    <Label htmlFor={`cs-excerpt-${study.id}`}>Excerpt</Label>
+                    <Textarea
+                      id={`cs-excerpt-${study.id}`}
+                      value={formData.excerpt || ''}
+                      onChange={(e) => setFormData({ ...formData, excerpt: e.target.value })}
+                      rows={3}
+                    />
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    </div>
-  )
-
-  const renderWebinars = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Webinars</h2>
-        <Button onClick={() => setEditing('new')} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          New Webinar
-        </Button>
-      </div>
-      
-      <div className="grid gap-4">
-        {webinars.map((webinar) => (
-          <Card key={webinar.id}>
-            <CardContent className="p-4">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-semibold">{webinar.title}</h3>
-                    <Badge variant={webinar.status === 'published' ? 'default' : 'secondary'}>
-                      {webinar.status}
-                    </Badge>
+                  <div>
+                    <Label htmlFor={`cs-content-${study.id}`}>Content</Label>
+                    <Textarea
+                      id={`cs-content-${study.id}`}
+                      value={formData.content || ''}
+                      onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                      rows={8}
+                    />
                   </div>
-                  <p className="text-sm text-gray-600 mb-2">{webinar.excerpt}</p>
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span>Presenter: {webinar.presenter_name}</span>
-                    <span>Duration: {webinar.duration}</span>
-                    <span>Registrations: {webinar.registrations}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2 ml-4">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(webinar, 'webinars')}>
-                    <Edit className="w-3 h-3" />
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => handleDelete(webinar.id, 'webinars')}>
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-              {editing === webinar.id && (
-                <div className="mt-4 border-t pt-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label>Featured Image</Label>
+                      <Label htmlFor={`cs-client-${study.id}`}>Client Name</Label>
                       <Input
-                        placeholder="Paste URL or upload a file"
-                        value={formData.featured_image_url || ''}
-                        onChange={(e) => setFormData({ ...formData, featured_image_url: e.target.value })}
+                        id={`cs-client-${study.id}`}
+                        value={formData.client_name || ''}
+                        onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
                       />
-                      <div className="flex items-center gap-2 mt-2">
-                        <Input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          disabled={!selectedFile || uploading}
-                          onClick={async () => {
-                            if (!selectedFile) return
-                            const url = await handleUpload(selectedFile, 'insight')
-                            setFormData((prev: any) => ({ ...prev, featured_image_url: url }))
-                            setSelectedFile(null)
-                          }}
-                        >
-                          <Upload className="w-4 h-4 mr-2" /> {uploading ? 'Uploading...' : 'Upload'}
-                        </Button>
-                      </div>
                     </div>
                     <div>
-                      <Label>Webinar URL</Label>
+                      <Label htmlFor={`cs-industry-${study.id}`}>Industry</Label>
                       <Input
-                        placeholder="Link to webinar platform"
-                        value={formData.webinar_url || ''}
-                        onChange={(e) => setFormData({ ...formData, webinar_url: e.target.value })}
+                        id={`cs-industry-${study.id}`}
+                        value={formData.industry || ''}
+                        onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor={`cs-duration-${study.id}`}>Project Duration</Label>
+                      <Input
+                        id={`cs-duration-${study.id}`}
+                        value={formData.project_duration || ''}
+                        onChange={(e) => setFormData({ ...formData, project_duration: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor={`cs-budget-${study.id}`}>Project Budget</Label>
+                      <Input
+                        id={`cs-budget-${study.id}`}
+                        value={formData.project_budget || ''}
+                        onChange={(e) => setFormData({ ...formData, project_budget: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor={`cs-technologies-${study.id}`}>Technologies</Label>
+                    <Input
+                      id={`cs-technologies-${study.id}`}
+                      value={Array.isArray(formData.technologies) ? formData.technologies.join(', ') : formData.technologies || ''}
+                      onChange={(e) => setFormData({ 
+                        ...formData, 
+                        technologies: e.target.value.split(',').map(t => t.trim()).filter(t => t.length > 0)
+                      })}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor={`cs-results-${study.id}`}>Results</Label>
+                    <Textarea
+                      id={`cs-results-${study.id}`}
+                      placeholder="List key achievements and metrics..."
+                      value={formData.results || ''}
+                      onChange={(e) => setFormData({ ...formData, results: e.target.value })}
+                      rows={4}
+                    />
+                  </div>
+                  <div>
+                    <Label>Featured Image</Label>
+                    <Input
+                      placeholder="Paste URL or upload a file"
+                      value={formData.featured_image_url || ''}
+                      onChange={(e) => setFormData({ ...formData, featured_image_url: e.target.value })}
+                    />
+                    <div className="flex items-center gap-2 mt-2">
+                      <Input type="file" accept="image/*" onChange={(e) => setSelectedFile(e.target.files?.[0] || null)} />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!selectedFile || uploading}
+                        onClick={async () => {
+                          if (!selectedFile) return
+                          const url = await handleUpload(selectedFile, 'case_studies')
+                          setFormData((prev: any) => ({ ...prev, featured_image_url: url }))
+                          setSelectedFile(null)
+                        }}
+                      >
+                        <Upload className="w-4 h-4 mr-2" /> {uploading ? 'Uploading...' : 'Upload'}
+                      </Button>
+                    </div>
+                  </div>
                   <div className="flex gap-2">
-                    <Button onClick={() => handleSave('webinars')}>
+                    <Button onClick={() => handleSave('case_studies')}>
                       <Save className="w-4 h-4 mr-2" /> Save
                     </Button>
                     <Button variant="outline" onClick={handleCancel}>
@@ -713,49 +1082,114 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50">
       {!isLoggedIn ? (
-        <div className="w-full max-w-md mx-auto p-8 bg-white rounded-xl shadow-xl">
-          <h2 className="text-2xl font-bold mb-6 text-purple-700">Admin Login</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <Label htmlFor="admin-email">Email</Label>
-              <Input id="admin-email" type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} required />
-            </div>
-            <div>
-              <Label htmlFor="admin-password">Password</Label>
-              <Input id="admin-password" type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} required />
-            </div>
-            {loginError && <div className="text-red-600 text-sm">{loginError}</div>}
-            <Button type="submit" className="w-full">Login</Button>
-          </form>
+        <div className="min-h-screen flex items-center justify-center p-4">
+          <div className="w-full max-w-md mx-auto">
+            <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-lg">
+              <CardHeader className="text-center pb-8 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-t-lg">
+                <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <User className="w-8 h-8" />
+                </div>
+                <CardTitle className="text-2xl font-bold">Admin Portal</CardTitle>
+                <p className="text-purple-100 text-sm">Content Management System</p>
+              </CardHeader>
+              <CardContent className="p-8">
+                <form onSubmit={handleLogin} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-email" className="text-sm font-medium text-gray-700">Email Address</Label>
+                    <Input 
+                      id="admin-email" 
+                      type="email" 
+                      value={loginEmail} 
+                      onChange={e => setLoginEmail(e.target.value)} 
+                      required 
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-lg p-3 transition-all duration-200"
+                      placeholder="Enter your admin email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="admin-password" className="text-sm font-medium text-gray-700">Password</Label>
+                    <Input 
+                      id="admin-password" 
+                      type="password" 
+                      value={loginPassword} 
+                      onChange={e => setLoginPassword(e.target.value)} 
+                      required 
+                      className="border-2 border-gray-200 focus:border-purple-500 rounded-lg p-3 transition-all duration-200"
+                      placeholder="Enter your password"
+                    />
+                  </div>
+                  {loginError && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                      {loginError}
+                    </div>
+                  )}
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    Sign In to Admin Panel
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       ) : (
-        <div className="max-w-7xl mx-auto px-4 py-8 w-full">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Content Management System</h1>
-            <p className="text-gray-600">Manage your website content, blogs, case studies, and more.</p>
+        <div className="min-h-screen">
+          {/* Header */}
+          <div className="bg-white shadow-sm border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 py-6">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                    <Edit className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900">Content Management</h1>
+                    <p className="text-gray-600 text-sm">Manage your website content with ease</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-300 border-2 border-gray-200 px-6 py-3 rounded-lg font-semibold transition-all duration-300"
+                >
+                  <User className="w-4 h-4" />
+                  Sign Out
+                </Button>
+              </div>
+            </div>
           </div>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="blogs">Blogs</TabsTrigger>
-              <TabsTrigger value="case-studies">Case Studies</TabsTrigger>
-              <TabsTrigger value="whitepapers">Whitepapers</TabsTrigger>
-              <TabsTrigger value="webinars">Webinars</TabsTrigger>
-            </TabsList>
-            <TabsContent value="blogs" className="mt-6">
-              {renderBlogs()}
-            </TabsContent>
-            <TabsContent value="case-studies" className="mt-6">
-              {renderCaseStudies()}
-            </TabsContent>
-            <TabsContent value="whitepapers" className="mt-6">
-              {renderWhitepapers()}
-            </TabsContent>
-            <TabsContent value="webinars" className="mt-6">
-              {renderWebinars()}
-            </TabsContent>
-          </Tabs>
+
+          {/* Main Content */}
+          <div className="max-w-7xl mx-auto px-4 py-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 max-w-md bg-white shadow-lg border border-gray-200 rounded-xl p-1">
+                <TabsTrigger 
+                  value="blogs" 
+                  className="flex items-center gap-2 rounded-lg py-3 px-6 font-semibold transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-600 data-[state=active]:to-pink-600 data-[state=active]:text-white"
+                >
+                  <Edit className="w-4 h-4" />
+                  Blog Posts
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="case-studies" 
+                  className="flex items-center gap-2 rounded-lg py-3 px-6 font-semibold transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white"
+                >
+                  <Tag className="w-4 h-4" />
+                  Case Studies
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="blogs" className="mt-8">
+                {renderBlogs()}
+              </TabsContent>
+              <TabsContent value="case-studies" className="mt-8">
+                {renderCaseStudies()}
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       )}
     </div>

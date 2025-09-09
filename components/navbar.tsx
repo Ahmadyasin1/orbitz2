@@ -29,7 +29,7 @@ const industries = [
 ]
 
 const resources = [
-	{ name: "Case Studies", href: "#case-studies", icon: FileText },
+	{ name: "Case Studies", href: "/resources/case-studies", icon: FileText },
 	{ name: "Blog", href: "/resources/blog", icon: Presentation },
 ]
 

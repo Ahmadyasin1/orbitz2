@@ -1,12 +1,36 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ArrowRight, CheckCircle, TrendingUp, Users, Shield, Building2, Heart, Factory, GraduationCap, Home, Download, Eye, Clock, DollarSign, BarChart3, BookOpen, Star, Award } from "lucide-react"
+import { ArrowRight, CheckCircle, TrendingUp, Users, Shield, Building2, Heart, Factory, GraduationCap, Home, Download, Eye, Clock, DollarSign, BarChart3, BookOpen, Star, Award, Search } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+
+interface CaseStudy {
+  id: string
+  title: string
+  slug: string
+  excerpt: string
+  content: string
+  featured_image_url: string
+  client_name: string
+  industry: string
+  project_duration: string
+  project_budget: string
+  technologies: string[]
+  results: any
+  published_at: string
+  created_at: string
+  updated_at: string
+  status: string
+  views: number
+}
 
 export default function CaseStudiesPage() {
   const [selectedCategory, setSelectedCategory] = useState("All")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [caseStudies, setCaseStudies] = useState<CaseStudy[]>([])
+  const [loading, setLoading] = useState(true)
   
   const categories = [
     { name: "All", icon: BookOpen },
@@ -14,187 +38,71 @@ export default function CaseStudiesPage() {
     { name: "Financial", icon: Building2 },
     { name: "Manufacturing", icon: Factory },
     { name: "Education", icon: GraduationCap },
-    { name: "Real Estate", icon: Home }
+    { name: "Real Estate", icon: Home },
+    { name: "Technology", icon: TrendingUp },
   ]
 
-  const caseStudies = [
-    {
-      id: 1,
-      title: "CRM Cloud Migration with AI & Copilot Enablement in Financial Services",
-      subtitle: "Microsoft Dynamics CRM to Dynamics 365 Online Migration",
-      industry: "Financial",
-      client: "Leading Financial Services Firm",
-      duration: "12 months",
-      team_size: "8 specialists",
-      image: "/modern-office-colorful-lighting.png",
-      thumbnail: "/modern-office-colorful-lighting.png",
-      challenge: "A leading financial services firm relied on an aging on-premise Microsoft Dynamics CRM, limiting scalability, data security, and innovation potential. To modernize client management, strengthen compliance, and unlock AI-driven insights, the firm needed a seamless migration to Dynamics 365 Online.",
-      solution: "The Orbitz Technology team successfully led the end-to-end migration of Microsoft Dynamics CRM from on-premise to Dynamics 365 Online, delivering a secure, scalable, and modern platform while aligning business, technology, and compliance stakeholders.",
-      implementation: [
-        "Governance & Reporting – Facilitated monthly Steering Committee meetings and provided transparent executive reporting",
-        "Test Transformation – Modernized testing by moving from Excel to Jira Xray, ensuring efficiency and compliance traceability",
-        "Regulatory Compliance – Collaborated with InfoSec and Deloitte to meet stringent financial security and infrastructure requirements",
-        "Agile Delivery – Partnered with system integration teams using Azure DevOps for backlog management, bug triage, and issue resolution",
-        "AI & Copilot Roadmap – Researched and planned adoption of AI and Microsoft Copilot features within Dynamics 365 to enable predictive customer insights, automate workflows, and enhance financial advisor productivity",
-        "Change Adoption – Delivered training, newsletters, and communications to drive user adoption and trust in the new platform and upcoming AI capabilities"
-      ],
-      results: [
-        "Modernized CRM platform with enhanced security",
-        "Foundation laid for AI-powered client engagement",
-        "Improved compliance readiness",
-        "Enhanced operational efficiency",
-        "Smarter recommendations for financial advisors",
-        "Automated reporting capabilities",
-        "Enhanced client interaction tools",
-        "Next-generation data-driven customer relationship management"
-      ],
-      metrics: {
-        efficiency: "Significant",
-        compliance: "100%",
-        ai_readiness: "Complete",
-        satisfaction: "High"
-      },
-      technologies: ["Microsoft Dynamics 365", "Azure DevOps", "Jira Xray", "AI & Copilot", "Cloud Migration", "Financial Compliance"],
-      color: "from-blue-500 to-cyan-500",
-      testimonial: {
-        quote: "The migration not only modernized our CRM platform but also positioned us for AI-powered client engagement in a highly regulated industry.",
-        author: "CTO",
-        position: "Financial Services Firm"
-      }
-    },
-    {
-      id: 2,
-      title: "Global Marketing Tech Transformation in the Technology Industry",
-      subtitle: "Stensul & Folloze Implementation for Enhanced Marketing Operations",
-      industry: "Technology",
-      client: "Global Technology Leader",
-      duration: "18 months",
-      team_size: "10 specialists",
-      image: "/ai-neural-network-data.png",
-      thumbnail: "/ai-neural-network-data.png",
-      challenge: "A global technology leader needed to streamline its email marketing and account-based marketing (ABM) processes, which were slowed by manual approvals, inconsistent design standards, and complex agency handoffs. Additionally, the organization required stronger privacy and governance controls to meet global data protection expectations while scaling marketing programs across multiple regions.",
-      solution: "The Orbitz Technology team led the implementation and delivery of Stensul (Email Creation Platform) and Folloze (ABM Engagement Platform), enhancing speed, compliance, and design consistency across global business teams.",
-      implementation: [
-        "Faster Campaign Execution – Implemented Stensul globally, reducing email campaign go-to-market time by 50% and introducing efficiencies in layout approval and agency handoff",
-        "Governance & Privacy – Partnered with the data privacy team to implement governance guardrails in Folloze, ensuring compliance with global privacy standards in account-based marketing campaigns",
-        "Custom Development – Designed an integrated Stensul–Eloqua solution to support internal communications, enabling marketers to repurpose approved templates for employee-facing communications",
-        "Design Enforcement – Collaborated with the design team to ensure consistent brand and design principles across Stensul, Eloqua, and Folloze platforms",
-        "Partner Marketing Expansion – Supported partner marketing program managers to roll out the Stensul-based email solution to Cisco partner teams across North America, ensuring adoption and alignment with brand best practices"
-      ],
-      results: [
-        "50% reduction in email campaign go-to-market time",
-        "Global brand consistency enforcement",
-        "Privacy compliance embedded across ABM campaigns",
-        "Enhanced external customer engagement",
-        "Improved internal communication workflows",
-        "Greater scalability over global marketing operations",
-        "Successful partner marketing program rollout",
-        "Streamlined agency handoff processes"
-      ],
-      metrics: {
-        time_reduction: "50%",
-        efficiency: "Significant",
-        compliance: "100%",
-        scalability: "Enhanced"
-      },
-      technologies: ["Stensul", "Folloze", "Eloqua", "Marketing Automation", "Privacy Compliance", "Brand Management"],
-      color: "from-purple-500 to-pink-500",
-      testimonial: {
-        quote: "The program delivered significant marketing efficiency gains while enforcing global brand consistency and embedding privacy compliance across our campaigns.",
-        author: "Marketing Director",
-        position: "Global Technology Leader"
-      }
-    },
-    {
-      id: 3,
-      title: "CRM Cloud Transformation for Commercial Real Estate",
-      subtitle: "Microsoft Dynamics CRM Migration and Custom Application Development",
-      industry: "Real Estate",
-      client: "Leading Commercial Real Estate Firm",
-      duration: "15 months",
-      team_size: "12 specialists",
-      image: "/modern-data-center.png",
-      thumbnail: "/modern-data-center.png",
-      challenge: "A leading commercial real estate firm relied on legacy CRM tools that lacked scalability, mobility, and integration with core financial systems. Sales teams across the Americas faced inefficiencies managing leads, generating quotes, and standardizing processes across diverse regional markets. The firm required a CRM modernization initiative that could unify processes, integrate with back-office systems, and support the speed and transparency demanded in real estate transactions.",
-      solution: "The Orbitz Technology team led the migration of Microsoft Dynamics CRM to the cloud and delivered a custom CRM application for the Americas Markets Teams, providing a scalable and feature-rich platform tailored to the firm's needs.",
-      implementation: [
-        "CRM Cloud Migration – Successfully migrated Dynamics CRM from on-premise to the cloud, unlocking the platform's latest features and ensuring flexibility for future growth",
-        "Custom CRM App Development – Designed and delivered a custom Dynamics CRM-based application integrated with PeopleSoft to support the end-to-end quoting process for real estate leads, improving response speed and accuracy for client opportunities",
-        "Sales Process Standardization – Collaborated with North American business leaders to define a standardized sales process within the CRM, while accommodating unique regional variations across different markets",
-        "User-Centric Delivery – Ensured business alignment through regular stakeholder engagement, requirements workshops, and platform demos, driving smooth adoption across regional sales teams"
-      ],
-      results: [
-        "Modernized cloud-enabled CRM platform",
-        "Streamlined lead-to-quote cycle times",
-        "Greater process consistency across regional markets",
-        "Enhanced integration with financial systems",
-        "Improved visibility into sales pipelines",
-        "Faster quote generation capabilities",
-        "Scalable operations in competitive environment",
-        "Unified platform for sales teams"
-      ],
-      metrics: {
-        efficiency: "Significant",
-        integration: "Enhanced",
-        scalability: "Improved",
-        adoption: "Smooth"
-      },
-      technologies: ["Microsoft Dynamics CRM", "Cloud Migration", "PeopleSoft Integration", "Custom Development", "Sales Process Automation"],
-      color: "from-green-500 to-emerald-500",
-      testimonial: {
-        quote: "The modernized CRM platform streamlined our operations and enhanced our ability to scale in a competitive real estate environment.",
-        author: "Sales Director",
-        position: "Commercial Real Estate Firm"
-      }
-    },
-    {
-      id: 4,
-      title: "CRM & Service Cloud Transformation in the Heavy Equipment Industry",
-      subtitle: "Comprehensive Customer Engagement and Service Operations Modernization",
-      industry: "Manufacturing",
-      client: "Global Heavy Equipment Manufacturer",
-      duration: "24 months",
-      team_size: "18 specialists",
-      image: "/business-success.png",
-      thumbnail: "/business-success.png",
-      challenge: "A global heavy equipment manufacturer serving the Agriculture (AG) and Construction Equipment (CE) markets across North America needed to modernize its customer engagement strategy. The firm relied on fragmented CRM processes, inconsistent customer data, and outsourced call center operations, leading to high call handling times (CHT) and increased operational costs. Additionally, siloed marketing functions made it difficult to engage customers consistently across sales, service, and marketing channels.",
-      solution: "The Orbitz Technology team delivered a comprehensive transformation program to modernize CRM, digitize service operations, and optimize marketing automation for the NAFTA AG and CE business units.",
-      implementation: [
-        "Unified CRM & Marketing Oversight – Took ownership of all CRM and marketing automation needs for AG and CE brands, ensuring business-wide consistency and scalability",
-        "Call Center Modernization – Scoped and implemented a Service Cloud–based Call Center solution for Breakdown Assistance, improving real-time visibility into cases and faster resolution for customers",
-        "Marketing Automation Enablement – Led the selection and onboarding of a Marketing Automation platform, enabling personalized campaigns and stronger dealer and customer engagement",
-        "Customer Data Standardization – Defined and executed a re-platforming of the customer database with enhanced deduplication and standardization rules, improving data quality for sales, service, and marketing teams",
-        "In-sourced Call Center Operations – Transitioned call center support back in-house with a Microsoft Dynamics solution, delivering a 20% reduction in Call Handling Time (CHT) and 20% annual cost savings (YOY)"
-      ],
-      results: [
-        "20% reduction in Call Handling Time (CHT)",
-        "20% annual cost savings (YOY)",
-        "Faster roadside and breakdown assistance",
-        "Improved customer satisfaction and loyalty",
-        "Clean, standardized customer data access",
-        "More effective campaigns and upsell opportunities",
-        "Strong digital foundation for customer engagement",
-        "Streamlined operations across equipment lifecycle"
-      ],
-      metrics: {
-        cht_reduction: "20%",
-        cost_savings: "20%",
-        efficiency: "Significant",
-        satisfaction: "Improved"
-      },
-      technologies: ["Microsoft Dynamics", "Service Cloud", "Marketing Automation", "Customer Data Platform", "Call Center Solutions", "CRM Integration"],
-      color: "from-orange-500 to-red-500",
-      testimonial: {
-        quote: "The transformation delivered measurable business value with faster customer support, cleaner data, and significant cost savings while improving our digital foundation.",
-        author: "Operations Director",
-        position: "Heavy Equipment Manufacturer"
-      }
+  useEffect(() => {
+    loadCaseStudies()
+  }, [])
+
+  const loadCaseStudies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('case_studies')
+        .select('*')
+        .eq('status', 'published')
+        .order('published_at', { ascending: false })
+
+      if (error) throw error
+      setCaseStudies(data || [])
+    } catch (error) {
+      console.error('Error loading case studies:', error)
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
-  const filteredStudies = selectedCategory === "All" 
-    ? caseStudies 
-    : caseStudies.filter(study => study.industry === selectedCategory)
+  // Filter case studies based on search term and selected category
+  const filteredStudies = caseStudies.filter(study => {
+    const matchesSearch = study.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         study.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         study.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         study.industry.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesCategory = selectedCategory === "All" || study.industry === selectedCategory
+    return matchesSearch && matchesCategory
+  })
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const getIndustryColor = (industry: string) => {
+    const colors = {
+      'Financial': 'from-blue-500 to-cyan-500',
+      'Technology': 'from-purple-500 to-pink-500', 
+      'Real Estate': 'from-green-500 to-emerald-500',
+      'Manufacturing': 'from-orange-500 to-red-500',
+      'Healthcare': 'from-pink-500 to-rose-500',
+      'Education': 'from-indigo-500 to-purple-500'
+    }
+    return colors[industry as keyof typeof colors] || 'from-gray-500 to-gray-600'
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading case studies...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -237,8 +145,8 @@ export default function CaseStudiesPage() {
           {/* Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
             <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-white mb-2">50+</div>
-              <div className="text-purple-200 text-sm">Successful Projects</div>
+              <div className="text-3xl md:text-4xl font-bold text-white mb-2">{caseStudies.length}+</div>
+              <div className="text-purple-200 text-sm">Success Stories</div>
             </div>
             <div className="text-center">
               <div className="text-3xl md:text-4xl font-bold text-white mb-2">99%</div>
@@ -249,7 +157,7 @@ export default function CaseStudiesPage() {
               <div className="text-purple-200 text-sm">Cost Savings Delivered</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl md:text-4xl font-bold text-white mb-2">15+</div>
+              <div className="text-3xl md:text-4xl font-bold text-white mb-2">{new Set(caseStudies.map(s => s.industry)).size}+</div>
               <div className="text-purple-200 text-sm">Industries Served</div>
             </div>
           </div>
@@ -283,6 +191,21 @@ export default function CaseStudiesPage() {
       {/* Category Filter */}
       <section className="py-12 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
+          {/* Search Bar */}
+          <div className="max-w-2xl mx-auto mb-8">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search case studies by title, client, or industry..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-full bg-white shadow-md focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all duration-300"
+              />
+            </div>
+          </div>
+
+          {/* Category Filters */}
           <div className="flex flex-wrap justify-center gap-4">
             {categories.map((category) => {
               const IconComponent = category.icon
@@ -302,167 +225,200 @@ export default function CaseStudiesPage() {
               )
             })}
           </div>
+
+          {/* Results Count */}
+          <div className="text-center mt-6">
+            <p className="text-gray-600">
+              Showing {filteredStudies.length} case stud{filteredStudies.length === 1 ? 'y' : 'ies'}
+              {searchTerm && ` for "${searchTerm}"`}
+              {selectedCategory !== "All" && ` in ${selectedCategory}`}
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Case Studies Grid */}
       <section id="case-studies" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="grid gap-16">
-            {filteredStudies.map((study, index) => (
-              <Card key={study.id} className="overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 border-0 bg-gradient-to-br from-white to-gray-50">
-                <div className={`grid lg:grid-cols-2 gap-0 ${index % 2 === 1 ? 'lg:grid-flow-col-dense' : ''}`}>
-                  {/* Image Section */}
-                  <div className={`relative h-80 lg:h-auto ${index % 2 === 1 ? 'lg:col-start-2' : ''}`}>
-                    <div className={`absolute inset-0 bg-gradient-to-r ${study.color} opacity-90`}></div>
-                    <img 
-                      src={study.image} 
-                      alt={study.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/30"></div>
-                    
-                    {/* Industry Badge */}
-                    <div className="absolute top-6 left-6">
-                      <span className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium border border-white/30">
-                        {study.industry}
-                      </span>
-                    </div>
-
-                    {/* Project Info */}
-                    <div className="absolute bottom-6 left-6 right-6">
-                      <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
-                        <div className="grid grid-cols-3 gap-4 text-white text-sm">
-                          <div>
-                            <Clock className="w-4 h-4 mb-1" />
-                            <div className="font-medium">{study.duration}</div>
-                          </div>
-                          <div>
-                            <Users className="w-4 h-4 mb-1" />
-                            <div className="font-medium">{study.team_size}</div>
-                          </div>
-                          <div>
-                            <Award className="w-4 h-4 mb-1" />
-                            <div className="font-medium">Success</div>
-                          </div>
+          {filteredStudies.length === 0 ? (
+            <div className="text-center py-16">
+              <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-2xl font-semibold text-gray-600 mb-2">No Case Studies Found</h3>
+              <p className="text-gray-500">
+                {searchTerm || selectedCategory !== "All" 
+                  ? "Try adjusting your search criteria or browse all case studies."
+                  : "Case studies will appear here once added to the database."
+                }
+              </p>
+              {(searchTerm || selectedCategory !== "All") && (
+                <Button 
+                  onClick={() => {
+                    setSearchTerm("")
+                    setSelectedCategory("All")
+                  }}
+                  className="mt-4"
+                  variant="outline"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-16">
+              {filteredStudies.map((study, index) => (
+                <Card key={study.id} className="overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 border-0 bg-gradient-to-br from-white to-gray-50">
+                  <div className={`grid lg:grid-cols-2 gap-0 ${index % 2 === 1 ? 'lg:grid-flow-col-dense' : ''}`}>
+                    {/* Image Section */}
+                    <div className={`relative h-80 lg:h-auto ${index % 2 === 1 ? 'lg:col-start-2' : ''}`}>
+                      <div className={`absolute inset-0 bg-gradient-to-r ${getIndustryColor(study.industry)} opacity-90`}></div>
+                      {study.featured_image_url ? (
+                        <img 
+                          src={study.featured_image_url} 
+                          alt={study.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                          <Building2 className="w-24 h-24 text-gray-400" />
                         </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Content Section */}
-                  <CardContent className="p-10 lg:p-12">
-                    <div className="mb-6">
-                      <div className="text-purple-600 font-semibold text-sm mb-2 uppercase tracking-wider">
-                        {study.client}
-                      </div>
-                      <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-3 leading-tight">
-                        {study.title}
-                      </h2>
-                      <p className="text-xl text-gray-600 font-medium">
-                        {study.subtitle}
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-8 mb-10">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                          <div className="w-2 h-2 bg-red-500 rounded-full mr-3"></div>
-                          Challenge
-                        </h3>
-                        <p className="text-gray-700 leading-relaxed">{study.challenge}</p>
-                      </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/30"></div>
                       
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
-                          Solution
-                        </h3>
-                        <p className="text-gray-700 leading-relaxed">{study.solution}</p>
+                      {/* Industry Badge */}
+                      <div className="absolute top-6 left-6">
+                        <span className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium border border-white/30">
+                          {study.industry}
+                        </span>
                       </div>
-                    </div>
 
-                    {/* Key Metrics */}
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                      {Object.entries(study.metrics).map(([key, value]) => (
-                        <div key={key} className="text-center bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4">
-                          <div className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                            {value}
-                          </div>
-                          <div className="text-sm text-gray-600 capitalize font-medium mt-1">
-                            {key.replace('_', ' ')}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Results */}
-                    <div className="mb-10">
-                      <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-                        <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
-                        Key Results
-                      </h3>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {study.results.map((result, idx) => (
-                          <div key={idx} className="flex items-start p-3 bg-green-50 rounded-lg">
-                            <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                            <span className="text-gray-700 font-medium text-sm">{result}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Technologies */}
-                    <div className="mb-10">
-                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
-                        <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
-                        Technologies Used
-                      </h3>
-                      <div className="flex flex-wrap gap-3">
-                        {study.technologies.map((tech, idx) => (
-                          <span key={idx} className="px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-sm font-medium border border-purple-200">
-                            {tech}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Testimonial */}
-                    <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 mb-8">
-                      <div className="flex items-start">
-                        <div className="text-4xl text-purple-600 mr-4">"</div>
-                        <div>
-                          <p className="text-gray-700 italic mb-4 leading-relaxed">
-                            {study.testimonial.quote}
-                          </p>
-                          <div className="flex items-center">
-                            <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-white font-bold mr-4">
-                              {study.testimonial.author.split(' ').map(n => n[0]).join('')}
+                      {/* Project Info */}
+                      <div className="absolute bottom-6 left-6 right-6">
+                        <div className="bg-white/10 backdrop-blur-md rounded-lg p-4 border border-white/20">
+                          <div className="grid grid-cols-3 gap-4 text-white text-sm">
+                            <div>
+                              <Clock className="w-4 h-4 mb-1" />
+                              <div className="font-medium">{study.project_duration || 'N/A'}</div>
                             </div>
                             <div>
-                              <div className="font-semibold text-gray-900">{study.testimonial.author}</div>
-                              <div className="text-sm text-gray-600">{study.testimonial.position}</div>
+                              <DollarSign className="w-4 h-4 mb-1" />
+                              <div className="font-medium">{study.project_budget || 'Contact Us'}</div>
+                            </div>
+                            <div>
+                              <Eye className="w-4 h-4 mb-1" />
+                              <div className="font-medium">{study.views || 0} views</div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
-                        <Download className="w-4 h-4 mr-2" />
-                        Download Full Case Study
-                      </Button>
-                      <Button variant="outline" className="border-2 border-purple-600 text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-full font-semibold">
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Live Demo
-                      </Button>
-                    </div>
-                  </CardContent>
-                </div>
-              </Card>
-            ))}
-          </div>
+                    {/* Content Section */}
+                    <CardContent className="p-10 lg:p-12">
+                      <div className="mb-6">
+                        <div className="text-purple-600 font-semibold text-sm mb-2 uppercase tracking-wider">
+                          {study.client_name}
+                        </div>
+                        <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-3 leading-tight">
+                          {study.title}
+                        </h2>
+                        <p className="text-xl text-gray-600 font-medium">
+                          {study.excerpt}
+                        </p>
+                      </div>
+                      
+                      <div className="space-y-8 mb-10">
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+                            Overview
+                          </h3>
+                          <div 
+                            className="text-gray-700 leading-relaxed prose max-w-none"
+                            dangerouslySetInnerHTML={{ __html: study.content.substring(0, 300) + '...' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Key Results */}
+                      {study.results && Object.keys(study.results).length > 0 && (
+                        <div className="mb-10">
+                          <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
+                            <div className="w-2 h-2 bg-green-500 rounded-full mr-3"></div>
+                            Key Results
+                          </h3>
+                          <div className="grid md:grid-cols-2 gap-4">
+                            {Object.entries(study.results).slice(0, 6).map(([key, value], idx) => (
+                              <div key={idx} className="flex items-start p-3 bg-green-50 rounded-lg">
+                                <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
+                                <span className="text-gray-700 font-medium text-sm">
+                                  {typeof value === 'string' ? value : `${key}: ${value}`}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Technologies */}
+                      {study.technologies && study.technologies.length > 0 && (
+                        <div className="mb-10">
+                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                            Technologies Used
+                          </h3>
+                          <div className="flex flex-wrap gap-3">
+                            {study.technologies.map((tech, idx) => (
+                              <span key={idx} className="px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-sm font-medium border border-purple-200">
+                                {tech}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Project Details */}
+                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-6 mb-8">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4">Project Details</h3>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">Published:</span>
+                            <div className="font-semibold">{formatDate(study.published_at)}</div>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Industry:</span>
+                            <div className="font-semibold">{study.industry}</div>
+                          </div>
+                          {study.project_duration && (
+                            <div>
+                              <span className="text-gray-600">Duration:</span>
+                              <div className="font-semibold">{study.project_duration}</div>
+                            </div>
+                          )}
+                          {study.project_budget && (
+                            <div>
+                              <span className="text-gray-600">Investment:</span>
+                              <div className="font-semibold">{study.project_budget}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                          <Download className="w-4 h-4 mr-2" />
+                          Download Full Case Study
+                        </Button>
+                        <Button variant="outline" className="border-2 border-purple-600 text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-full font-semibold">
+                          <Eye className="w-4 h-4 mr-2" />
+                          View Project Details
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -511,33 +467,3 @@ export default function CaseStudiesPage() {
     </div>
   )
 }
-
-// Add CSS animations to globals.css
-const additionalStyles = `
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(5deg); }
-}
-
-@keyframes float-delayed {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-15px) rotate(-5deg); }
-}
-
-@keyframes float-slow {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-8px) rotate(3deg); }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-float-delayed {
-  animation: float-delayed 8s ease-in-out infinite;
-}
-
-.animate-float-slow {
-  animation: float-slow 10s ease-in-out infinite;
-}
-`

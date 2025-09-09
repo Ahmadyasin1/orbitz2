@@ -2,13 +2,14 @@
 
 import type React from "react"
 import Head from "next/head"
+import emailjs from '@emailjs/browser'
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Phone, Mail, MapPin, Clock, Send, CheckCircle, Globe, Shield, Users } from "lucide-react"
+import { Phone, Mail, MapPin, Clock, Send, CheckCircle, Globe, Shield, Users, Loader2 } from "lucide-react"
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -20,10 +21,68 @@ export default function ContactPage() {
     message: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+
+  // Initialize EmailJS
+  const initializeEmailJS = () => {
+    emailjs.init("jkotdoOQ1Lda8L1kV") // Your public key
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle form submission
-    console.log("Form submitted:", formData)
+    
+    // Basic validation
+    if (!formData.name.trim() || !formData.email.trim() || !formData.message.trim()) {
+      setSubmitStatus('error')
+      return
+    }
+
+    setIsSubmitting(true)
+    setSubmitStatus('idle')
+
+    try {
+      // Initialize EmailJS
+      initializeEmailJS()
+
+      // Prepare template parameters to match EmailJS template
+      const templateParams = {
+        from_name: formData.name,
+        from_email: formData.email,
+        company_name: formData.company || 'Not specified',
+        phone_number: formData.phone || 'Not provided',
+        service_interest: formData.service || 'Not specified',
+        message: formData.message,
+        to_email: 'info@orbitztechnology.com',
+        reply_to: formData.email
+      }
+
+      // Send email using EmailJS
+      const result = await emailjs.send(
+        'service_6onovqz', // Your service ID
+        'template_tymyney', // Your template ID
+        templateParams,
+        'jkotdoOQ1Lda8L1kV' // Your public key
+      )
+
+      console.log('Email sent successfully:', result)
+      setSubmitStatus('success')
+      
+      // Reset form after successful submission
+      setFormData({
+        name: "",
+        email: "",
+        company: "",
+        phone: "",
+        service: "",
+        message: "",
+      })
+    } catch (error) {
+      console.error('Error sending email:', error)
+      setSubmitStatus('error')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -98,6 +157,21 @@ export default function ContactPage() {
               <CardContent className="p-8">
                 <h2 className="text-3xl font-bold text-gray-900 mb-6">Send Us a Message</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Success Message */}
+                  {submitStatus === 'success' && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-2">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <span className="text-green-800">Thank you! Your message has been sent successfully. We'll get back to you soon.</span>
+                    </div>
+                  )}
+
+                  {/* Error Message */}
+                  {submitStatus === 'error' && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <span className="text-red-800">Sorry, there was an error sending your message. Please try again or contact us directly.</span>
+                    </div>
+                  )}
+
                   <div className="grid md:grid-cols-2 gap-6">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name *</label>
@@ -184,10 +258,20 @@ export default function ContactPage() {
                   <Button
                     type="submit"
                     size="lg"
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-lg font-semibold"
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Send Message
-                    <Send className="w-5 h-5 ml-2" />
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Sending Message...
+                      </>
+                    ) : (
+                      <>
+                        Send Message
+                        <Send className="w-5 h-5 ml-2" />
+                      </>
+                    )}
                   </Button>
                 </form>
               </CardContent>
